@@ -1,0 +1,12 @@
+.idea
+.gradle
+.eclipse
+.sublime
+.atom
+.vscode
+
+zoo.iml
+gradle
+gradle.properties
+build
+out

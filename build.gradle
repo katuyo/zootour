@@ -1,0 +1,116 @@
+buildscript {
+    repositories {
+        maven {
+            url "http://repo1.maven.org/maven2/"
+        }
+    }
+    dependencies {
+        classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.5"
+        classpath 'org.junit.platform:junit-platform-gradle-plugin:1.0.0-M4'
+    }
+}
+
+group 'so.glad.zoo'
+version '1.0.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: "jacoco"
+apply plugin: 'org.sonarqube'
+apply plugin: 'maven-publish'
+apply plugin: 'org.junit.platform.gradle.plugin'
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+repositories {
+    maven {
+        url "http://repo1.maven.org/maven2/"
+    }
+}
+
+configurations {
+    providedRuntimes
+}
+
+dependencies {
+    compile("org.slf4j:slf4j-api:1.7.25")
+    compile("javax.cache:cache-api:1.0.0")
+    compile("org.apache.zookeeper:zookeeper:3.4.10")
+    compile("org.apache.httpcomponents:httpclient:4.5.3")
+    compile("com.fasterxml.jackson.core:jackson-databind:2.8.9")
+    compileOnly("org.projectlombok:lombok:1.16.18")
+
+    testCompile("org.ehcache:ehcache:3.3.1")
+    testCompile("org.apache.logging.log4j:log4j-api:2.8.2")
+    testCompile("org.apache.logging.log4j:log4j-core:2.8.2")
+    testCompile("org.apache.logging.log4j:log4j-slf4j-impl:2.8.2")
+    testCompile("org.jmockit:jmockit:1.33")
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.0'
+    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+}
+
+/**Maven Config **/
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: Javadoc) {
+    classifier = 'javadoc'
+//    from Javadoc.destinationDir
+}
+
+jacoco {
+    toolVersion = "0.7.6.201602180812"
+    reportsDir = file("$buildDir/customJacocoReportDir")
+}
+
+sonarqube {
+    properties {
+        property "sonar.host.url", "${SONAR_HOST_URL}"
+        property "sonar.forceAuthentication", true
+        property "sonar.login", "${SOGLAD_USERNAME}"
+        property "sonar.password", "${SOGLAD_PASSWORD}"
+        property "sonar.sources", sourceSets.main.java
+        property "sonar.jacoco.reportPaths", "${project.buildDir}/jacoco/test.exec"
+        property "sonar.exclusions", "**/*Generated.java"
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            pom.withXml {
+                def parentNode = asNode().appendNode('parent')
+                parentNode.appendNode('groupId', "${group}")
+                parentNode.appendNode('artifactId', "topup-clent")
+                parentNode.appendNode('version', "${version}")
+            }
+            artifacts {
+                archives javadocJar
+                archives sourcesJar
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            artifactUrls ["https://pub.glad.so/repository/maven-public/"]
+            if(project.version.endsWith('-SNAPSHOT')) {
+                url "https://pub.glad.so/repository/maven-snapshots/"
+            } else {
+                url "https://pub.glad.so/repository/maven-releases/"
+            }
+            credentials {
+                username "${SOGLAD_USERNAME}"
+                password "${SOGLAD_PASSWORD}"
+            }
+        }
+    }
+}
+
+//sonarqube.dependsOn jacocoTestCoverageVerification
+publish.dependsOn jar
